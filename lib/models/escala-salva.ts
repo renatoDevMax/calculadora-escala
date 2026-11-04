@@ -5,6 +5,7 @@ const participanteSchema = new Schema(
   {
     id: { type: String, required: true },
     nome: { type: String, required: true },
+    equipe: { type: String, required: true, enum: ["1", "2", "3"], default: "1" },
     folgas: { type: [Boolean], required: true },
   },
   { _id: false },

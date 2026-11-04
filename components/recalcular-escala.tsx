@@ -29,7 +29,10 @@ export function RecalcularEscala() {
         <p className="text-sm text-muted">
           Escala recalculada e salva. A anterior foi substituída. Nos dias de
           prioridade,{" "}
-          {limite === 1 ? "1 pessoa folga" : `${limite} pessoas folgam`}.
+          {limite === 1
+            ? "1 pessoa folga em cada equipe"
+            : `${limite} pessoas folgam em cada equipe`}
+          .
         </p>
       ) : null}
       {state?.error ? (

@@ -58,13 +58,13 @@ export function EscalaSemana({
             {textoFolgas(escala.numeroFolgas)}. {modo} Prioridade: {prioridade}.
             {escala.diasPrioridade.length > 0
               ? ` Nos dias de prioridade, ${escala.numFolgasPrioridade} ${
-                  escala.numFolgasPrioridade === 1 ? "pessoa folga" : "pessoas folgam"
+                  escala.numFolgasPrioridade === 1
+                    ? "pessoa folga em cada equipe"
+                    : "pessoas folgam em cada equipe"
                 }.`
               : ""}
-            {escala.ciclo > 0
-              ? ` Ciclo de ${escala.ciclo} ${
-                  escala.ciclo === 1 ? "semana" : "semanas"
-                }, semana ${escala.semanaDoCiclo}. Na próxima, cada pessoa assume a folga da linha de baixo.`
+            {escala.ciclos.length > 0
+              ? " Cada equipe tem o próprio ciclo. Na próxima semana, cada pessoa assume a folga da linha de baixo da sua equipe."
               : ""}
             {salva
               ? " Esta é a escala salva."
@@ -104,10 +104,17 @@ export function EscalaSemana({
       </div>
 
       <div className="flex flex-wrap gap-3 text-sm">
-        <span className="inline-flex items-center gap-2">
-          <span className={`size-3 rounded-full ${EQUIPE_MARCA["1"]}`} />
-          Equipe 1
-        </span>
+        {(["1", "2", "3"] as Equipe[]).map((equipe) => {
+          const ciclo = escala.ciclos.find((item) => item.equipe === equipe);
+
+          return (
+            <span key={equipe} className="inline-flex items-center gap-2">
+              <span className={`size-3 rounded-full ${EQUIPE_MARCA[equipe]}`} />
+              Equipe {equipe}
+              {ciclo ? ` · semana ${ciclo.semana} de ${ciclo.tamanho}` : ""}
+            </span>
+          );
+        })}
         <span className="inline-flex items-center gap-2 text-muted">
           <span className="size-3 rounded-full border border-line bg-field" />
           Folga
@@ -140,12 +147,16 @@ export function EscalaSemana({
                     </span>
                     {dia.prioridade ? (
                       <span className="mt-1 block text-xs font-medium text-ink">
-                        Prioridade · {escala.numFolgasPrioridade}
+                        Prioridade · {escala.numFolgasPrioridade} por equipe
                       </span>
                     ) : null}
                     <span className="mt-1 block text-xs font-normal text-muted">
-                      {escala.folgasNoDia[dia.indice]}{" "}
-                      {escala.folgasNoDia[dia.indice] === 1 ? "folga" : "folgas"}
+                      {escala.folgasNoDia[dia.indice]} no total
+                    </span>
+                    <span className="block text-xs font-normal text-muted">
+                      equipes {escala.folgasPorEquipe["1"][dia.indice]} ·{" "}
+                      {escala.folgasPorEquipe["2"][dia.indice]} ·{" "}
+                      {escala.folgasPorEquipe["3"][dia.indice]}
                     </span>
                   </th>
                 ))}
@@ -171,7 +182,8 @@ export function EscalaSemana({
                         <span>
                           {linha.nome}
                           <span className="mt-0.5 block text-xs font-normal text-muted">
-                            Semana {linha.posicaoCiclo} do ciclo
+                            Equipe {linha.equipe} · semana {linha.posicaoCiclo} do
+                            ciclo
                           </span>
                         </span>
                       </span>

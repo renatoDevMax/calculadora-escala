@@ -38,6 +38,7 @@ export type EscalaSemana = {
   folgasPorEquipe: Record<Equipe, number[]>;
   ciclo: number;
   semanaDoCiclo: number;
+  ciclos: { equipe: Equipe; tamanho: number; semana: number }[];
 };
 
 function dataUtc(iso: string) {
@@ -550,14 +551,19 @@ function tituloDaSemana(inicio: string, fim: string) {
 }
 
 export type BaseEscala = {
-  participantes: { id: string; nome: string; folgas: boolean[] }[];
+  participantes: {
+    id: string;
+    nome: string;
+    equipe: Equipe;
+    folgas: boolean[];
+  }[];
   sequencial: boolean;
   numeroFolgas: number;
   numFolgasPrioridade: number;
   diasPrioridade: DiaSemana[];
 };
 
-const EQUIPE_ATIVA: Equipe = "1";
+const EQUIPES: Equipe[] = ["1", "2", "3"];
 
 export function criarBaseEscala(
   colaboradores: Colaborador[],
@@ -574,28 +580,33 @@ export function criarBaseEscala(
   const diasPrioridade = config.diasPrioridade.map((dia) =>
     DIAS_SEMANA.indexOf(dia),
   );
-  const grupo = colaboradores
-    .filter((colaborador) => colaborador.equipe === EQUIPE_ATIVA)
-    .sort(
-      (a, b) =>
-        numeroDoNome(a.nome) - numeroDoNome(b.nome) ||
-        a.nome.localeCompare(b.nome, "pt-BR"),
+  const participantes = EQUIPES.flatMap((equipe) => {
+    const grupo = colaboradores
+      .filter((colaborador) => colaborador.equipe === equipe)
+      .sort(
+        (a, b) =>
+          numeroDoNome(a.nome) - numeroDoNome(b.nome) ||
+          a.nome.localeCompare(b.nome, "pt-BR"),
+      );
+    const grade = folgasDaEquipe(
+      grupo.length,
+      quantidadeFolgas,
+      diasPrioridade,
+      limitePrioridade,
+      config.folgaSequencia,
+      0,
     );
-  const grade = folgasDaEquipe(
-    grupo.length,
-    quantidadeFolgas,
-    diasPrioridade,
-    limitePrioridade,
-    config.folgaSequencia,
-    0,
-  );
 
-  return {
-    participantes: grupo.map((colaborador, indice) => ({
+    return grupo.map((colaborador, indice) => ({
       id: colaborador.id,
       nome: colaborador.nome,
+      equipe,
       folgas: [...(grade[indice] ?? Array(TOTAL_DIAS).fill(false))],
-    })),
+    }));
+  });
+
+  return {
+    participantes,
     sequencial: config.folgaSequencia,
     numeroFolgas: quantidadeFolgas,
     numFolgasPrioridade: limitePrioridade,
@@ -624,31 +635,44 @@ export function projetarEscala(
     "2": Array(TOTAL_DIAS).fill(0),
     "3": Array(TOTAL_DIAS).fill(0),
   } as Record<Equipe, number[]>;
-  const ciclo = base.participantes.length;
-  const semanaDoCiclo =
-    ciclo === 0 ? 0 : ((giro % ciclo) + ciclo) % ciclo;
-
-  base.participantes.forEach((participante, pessoa) => {
-    const posicao = ciclo === 0 ? 0 : (pessoa + semanaDoCiclo) % ciclo;
-    const origem = base.participantes[posicao];
-    const folgas = Array.from({ length: TOTAL_DIAS }, (_, dia) =>
-      Boolean(origem?.folgas[dia]),
+  const ciclos = EQUIPES.flatMap((equipe) => {
+    const grupo = base.participantes.filter(
+      (participante) => participante.equipe === equipe,
     );
+    const tamanho = grupo.length;
 
-    folgas.forEach((folga, dia) => {
-      if (folga) {
-        folgasPorEquipe[EQUIPE_ATIVA][dia] += 1;
-      }
+    if (tamanho === 0) {
+      return [];
+    }
+
+    const semana = ((giro % tamanho) + tamanho) % tamanho;
+
+    grupo.forEach((participante, pessoa) => {
+      const posicao = (pessoa + semana) % tamanho;
+      const origem = grupo[posicao];
+      const folgas = Array.from({ length: TOTAL_DIAS }, (_, dia) =>
+        Boolean(origem?.folgas[dia]),
+      );
+
+      folgas.forEach((folga, dia) => {
+        if (folga) {
+          folgasPorEquipe[equipe][dia] += 1;
+        }
+      });
+
+      linhas.push({
+        id: participante.id,
+        nome: participante.nome,
+        equipe,
+        folgas,
+        posicaoCiclo: posicao + 1,
+      });
     });
 
-    linhas.push({
-      id: participante.id,
-      nome: participante.nome,
-      equipe: EQUIPE_ATIVA,
-      folgas,
-      posicaoCiclo: posicao + 1,
-    });
+    return [{ equipe, tamanho, semana: semana + 1 }];
   });
+  const ciclo = ciclos[0]?.tamanho ?? 0;
+  const semanaDoCiclo = ciclos[0]?.semana ?? 0;
 
   linhas.sort(
     (a, b) =>
@@ -686,11 +710,12 @@ export function projetarEscala(
     }),
     linhas,
     folgasNoDia: Array.from({ length: TOTAL_DIAS }, (_, dia) =>
-      folgasPorEquipe[EQUIPE_ATIVA][dia],
+      EQUIPES.reduce((total, equipe) => total + folgasPorEquipe[equipe][dia], 0),
     ),
     folgasPorEquipe,
     ciclo,
-    semanaDoCiclo: ciclo === 0 ? 0 : semanaDoCiclo + 1,
+    semanaDoCiclo,
+    ciclos,
   };
 }
 

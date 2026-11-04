@@ -28,9 +28,9 @@ export default function EscalaPage({
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Escala</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          A escala está na equipe 1. As folgas formam um ciclo: todo mundo
-          passa pelas mesmas semanas, em ordem. Nos dias de prioridade, a
-          quantidade é a configurada.
+          As três equipes têm ciclos próprios. Todo mundo da equipe passa
+          pelas mesmas semanas, em ordem. Nos dias de prioridade, cada equipe
+          fica com a quantidade configurada.
         </p>
       </header>
       <Suspense
