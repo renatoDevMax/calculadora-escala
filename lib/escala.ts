@@ -1,4 +1,4 @@
-import type { Colaborador, Equipe } from "@/lib/colaboradores";
+import type { Colaborador, Equipe, Genero } from "@/lib/colaboradores";
 import type { Configuracao } from "@/lib/configuracao";
 import { DIAS_SEMANA, type DiaSemana } from "@/lib/dias";
 
@@ -74,6 +74,23 @@ export function segundaDaSemana(iso: string) {
   const deslocamento = dia === 0 ? -6 : 1 - dia;
   data.setUTCDate(data.getUTCDate() + deslocamento);
   return isoDeUtc(data);
+}
+
+function primeiraSegundaDoMes(ano: number, mes: number) {
+  const data = new Date(Date.UTC(ano, mes - 1, 1));
+  const dia = data.getUTCDay();
+  const deslocamento = (8 - (dia === 0 ? 7 : dia)) % 7;
+  data.setUTCDate(data.getUTCDate() + deslocamento);
+  return isoDeUtc(data);
+}
+
+export function semanasDosMesesVizinhos(inicio: string) {
+  const [ano, mes] = inicio.split("-").map(Number);
+
+  return {
+    anterior: primeiraSegundaDoMes(ano, mes - 1),
+    proximo: primeiraSegundaDoMes(ano, mes + 1),
+  };
 }
 
 function somarDias(iso: string, dias: number) {
@@ -550,6 +567,12 @@ function tituloDaSemana(inicio: string, fim: string) {
   return `${semAno.format(primeira)} a ${completo.format(ultima)}`;
 }
 
+export type TrocaFolga = {
+  semana: string;
+  origemId: string;
+  destinoId: string;
+};
+
 export type BaseEscala = {
   participantes: {
     id: string;
@@ -561,6 +584,7 @@ export type BaseEscala = {
   numeroFolgas: number;
   numFolgasPrioridade: number;
   diasPrioridade: DiaSemana[];
+  trocas: TrocaFolga[];
 };
 
 const EQUIPES: Equipe[] = ["1", "2", "3"];
@@ -611,6 +635,67 @@ export function criarBaseEscala(
     numeroFolgas: quantidadeFolgas,
     numFolgasPrioridade: limitePrioridade,
     diasPrioridade: [...config.diasPrioridade],
+    trocas: [],
+  };
+}
+
+export function aplicarTrocas(
+  escala: EscalaSemana,
+  trocas: TrocaFolga[],
+): EscalaSemana {
+  const daSemana = trocas.filter((troca) => troca.semana === escala.inicio);
+
+  if (daSemana.length === 0) {
+    return escala;
+  }
+
+  const linhas = escala.linhas.map((linha) => ({
+    ...linha,
+    folgas: [...linha.folgas],
+  }));
+
+  daSemana.forEach((troca) => {
+    const origem = linhas.find((linha) => linha.id === troca.origemId);
+    const destino = linhas.find((linha) => linha.id === troca.destinoId);
+
+    if (
+      !origem ||
+      !destino ||
+      origem.id === destino.id ||
+      origem.equipe !== destino.equipe
+    ) {
+      return;
+    }
+
+    const folgas = origem.folgas;
+    origem.folgas = destino.folgas;
+    destino.folgas = folgas;
+    const posicao = origem.posicaoCiclo;
+    origem.posicaoCiclo = destino.posicaoCiclo;
+    destino.posicaoCiclo = posicao;
+  });
+
+  const folgasPorEquipe = {
+    "1": Array(TOTAL_DIAS).fill(0),
+    "2": Array(TOTAL_DIAS).fill(0),
+    "3": Array(TOTAL_DIAS).fill(0),
+  } as Record<Equipe, number[]>;
+
+  linhas.forEach((linha) => {
+    linha.folgas.forEach((folga, dia) => {
+      if (folga) {
+        folgasPorEquipe[linha.equipe][dia] += 1;
+      }
+    });
+  });
+
+  return {
+    ...escala,
+    linhas,
+    folgasPorEquipe,
+    folgasNoDia: Array.from({ length: TOTAL_DIAS }, (_, dia) =>
+      EQUIPES.reduce((total, equipe) => total + folgasPorEquipe[equipe][dia], 0),
+    ),
   };
 }
 
@@ -716,6 +801,58 @@ export function projetarEscala(
     ciclo,
     semanaDoCiclo,
     ciclos,
+  };
+}
+
+export type GradeTrabalho = {
+  titulo: string;
+  inicio: string;
+  dias: DiaCalendario[];
+  linhas: { id: string; nome: string; equipe: Equipe; genero: Genero }[];
+};
+
+export function montarGradeTrabalho(
+  colaboradores: Colaborador[],
+  semana?: string,
+  diasPrioridade: readonly DiaSemana[] = [],
+  agora = new Date(),
+): GradeTrabalho {
+  const hoje = hojeEmSaoPaulo(agora);
+  const referencia = semana && isoValido(semana) ? semana : hoje;
+  const inicio = segundaDaSemana(referencia);
+  const fim = somarDias(inicio, 6);
+  const formatoMes = new Intl.DateTimeFormat("pt-BR", {
+    month: "short",
+    timeZone: "UTC",
+  });
+  const prioridade = new Set(diasPrioridade);
+  const linhas = [...colaboradores].sort(
+    (a, b) =>
+      Number(a.equipe) - Number(b.equipe) ||
+      numeroDoNome(a.nome) - numeroDoNome(b.nome) ||
+      a.nome.localeCompare(b.nome, "pt-BR"),
+  );
+
+  return {
+    titulo: tituloDaSemana(inicio, fim),
+    inicio,
+    dias: DIAS_SEMANA.map((nome, indice) => {
+      const iso = somarDias(inicio, indice);
+      return {
+        indice,
+        nome,
+        iso,
+        rotulo: `${dataUtc(iso).getUTCDate()} ${formatoMes.format(dataUtc(iso)).replace(".", "")}`,
+        prioridade: prioridade.has(nome),
+        hoje: iso === hoje,
+      };
+    }),
+    linhas: linhas.map((colaborador) => ({
+      id: colaborador.id,
+      nome: colaborador.nome,
+      equipe: colaborador.equipe,
+      genero: colaborador.genero,
+    })),
   };
 }
 

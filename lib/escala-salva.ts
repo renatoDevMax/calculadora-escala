@@ -4,10 +4,12 @@ import { obterConfiguracao } from "@/lib/configuracao";
 import { DIAS_SEMANA, isDiaSemana, type DiaSemana } from "@/lib/dias";
 import { connectDB } from "@/lib/db";
 import {
+  aplicarTrocas,
   criarBaseEscala,
   projetarEscala,
   type BaseEscala,
   type EscalaSemana,
+  type TrocaFolga,
 } from "@/lib/escala";
 import { EscalaSalvaModel } from "@/lib/models/escala-salva";
 
@@ -29,7 +31,32 @@ type EscalaSalvaDoc = {
   numFolgasPrioridade: number;
   diasPrioridade?: string[];
   participantes?: ParticipanteDoc[];
+  trocas?: { semana?: string; origemId?: string; destinoId?: string }[];
 };
+
+function normalizarTrocas(
+  trocas: { semana?: string; origemId?: string; destinoId?: string }[] | undefined,
+): TrocaFolga[] {
+  return (trocas ?? []).flatMap((troca) => {
+    if (
+      !troca.semana ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(troca.semana) ||
+      !troca.origemId ||
+      !troca.destinoId ||
+      troca.origemId === troca.destinoId
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        semana: troca.semana,
+        origemId: troca.origemId,
+        destinoId: troca.destinoId,
+      },
+    ];
+  });
+}
 
 function isEquipe(value: string | undefined): value is Equipe {
   return value === "1" || value === "2" || value === "3";
@@ -58,6 +85,7 @@ function paraBase(documento: EscalaSalvaDoc): BaseEscala {
     numeroFolgas: documento.numeroFolgas,
     numFolgasPrioridade: documento.numFolgasPrioridade,
     diasPrioridade: DIAS_SEMANA.filter((dia) => dias.includes(dia)),
+    trocas: normalizarTrocas(documento.trocas),
   };
 }
 
@@ -92,6 +120,7 @@ export async function salvarBase(base: BaseEscala) {
       numFolgasPrioridade: base.numFolgasPrioridade,
       diasPrioridade: base.diasPrioridade satisfies DiaSemana[],
       participantes: base.participantes,
+      trocas: base.trocas,
     },
     { upsert: true, setDefaultsOnInsert: true },
   );
@@ -148,7 +177,10 @@ export async function obterEscalaDaSemana(semana?: string): Promise<{
 
   if (armazenada) {
     const base = await completarEquipesFaltantes(armazenada);
-    return { escala: projetarEscala(base, semana), salva: true };
+    return {
+      escala: aplicarTrocas(projetarEscala(base, semana), base.trocas),
+      salva: true,
+    };
   }
 
   const [colaboradores, config] = await Promise.all([
@@ -157,7 +189,10 @@ export async function obterEscalaDaSemana(semana?: string): Promise<{
   ]);
 
   return {
-    escala: projetarEscala(criarBaseEscala(colaboradores, config), semana),
+    escala: aplicarTrocas(
+      projetarEscala(criarBaseEscala(colaboradores, config), semana),
+      [],
+    ),
     salva: false,
   };
 }

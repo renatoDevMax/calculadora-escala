@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import { ColaboradorModel } from "@/lib/models/colaborador";
-import type { Equipe } from "@/lib/colaboradores";
+import { generoDoColaborador, type Equipe } from "@/lib/colaboradores";
 
 export type FormState = {
   error?: string;
@@ -35,7 +35,11 @@ function lerColaborador(formData: FormData) {
     return { error: "Selecione a equipe 1, 2 ou 3." } as const;
   }
 
-  return { nome, equipe } as const;
+  return {
+    nome,
+    equipe,
+    genero: generoDoColaborador(String(formData.get("genero") ?? "")),
+  } as const;
 }
 
 export async function criarColaborador(
@@ -52,6 +56,7 @@ export async function criarColaborador(
   await ColaboradorModel.create({
     nome: dados.nome,
     equipe: dados.equipe,
+    genero: dados.genero,
   });
   refresh();
 
@@ -77,6 +82,7 @@ export async function atualizarColaborador(
   const atualizado = await ColaboradorModel.findByIdAndUpdate(id, {
     nome: dados.nome,
     equipe: dados.equipe,
+    genero: dados.genero,
   });
 
   if (!atualizado) {

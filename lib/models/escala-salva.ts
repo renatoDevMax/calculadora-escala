@@ -1,6 +1,15 @@
 import mongoose, { Schema } from "mongoose";
 import { DIAS_SEMANA } from "@/lib/dias";
 
+const trocaSchema = new Schema(
+  {
+    semana: { type: String, required: true },
+    origemId: { type: String, required: true },
+    destinoId: { type: String, required: true },
+  },
+  { _id: false },
+);
+
 const participanteSchema = new Schema(
   {
     id: { type: String, required: true },
@@ -20,6 +29,7 @@ const escalaSalvaSchema = new Schema(
     numFolgasPrioridade: { type: Number, required: true, min: 0 },
     diasPrioridade: { type: [String], enum: DIAS_SEMANA, default: [] },
     participantes: { type: [participanteSchema], required: true },
+    trocas: { type: [trocaSchema], default: [] },
   },
   { collection: "escalas" },
 );

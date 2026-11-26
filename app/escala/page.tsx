@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { EscalaSemana } from "@/components/escala-semana";
-import { obterEscalaDaSemana } from "@/lib/escala-salva";
+import { EscalaMes } from "@/components/escala-mes";
+import { obterVistaEscala } from "@/lib/vista-escala";
 
 export const metadata = {
   title: "Escala",
@@ -15,22 +15,18 @@ async function Calendario({
   const semana = Array.isArray(parametros.semana)
     ? parametros.semana[0]
     : parametros.semana;
-  const { escala, salva } = await obterEscalaDaSemana(semana);
+  const vista = await obterVistaEscala(semana);
 
-  return <EscalaSemana escala={escala} salva={salva} />;
+  return <EscalaMes key={vista.grade.inicio} vista={vista} />;
 }
 
-export default function EscalaPage({
-  searchParams,
-}: PageProps<"/escala">) {
+export default function EscalaPage({ searchParams }: PageProps<"/escala">) {
   return (
     <div className="px-4 py-8 sm:px-8">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Escala</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          As três equipes têm ciclos próprios. Todo mundo da equipe passa
-          pelas mesmas semanas, em ordem. Nos dias de prioridade, cada equipe
-          fica com a quantidade configurada.
+          A folga fixa e a folga alternada de cada pessoa, no mês inteiro.
         </p>
       </header>
       <Suspense

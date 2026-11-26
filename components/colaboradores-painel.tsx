@@ -8,7 +8,7 @@ import {
   excluirColaborador,
   type FormState,
 } from "@/app/actions/colaboradores";
-import type { Colaborador } from "@/lib/colaboradores";
+import type { Colaborador, Genero } from "@/lib/colaboradores";
 
 const EQUIPES = ["1", "2", "3"] as const;
 
@@ -53,6 +53,24 @@ function CampoNome({ defaultValue = "" }: { defaultValue?: string }) {
   );
 }
 
+function textoGenero(genero: Genero) {
+  return genero === "mulher" ? "Mulher" : "Homem";
+}
+
+function CampoGenero({ defaultValue = "homem" }: { defaultValue?: Genero }) {
+  return (
+    <select
+      name="genero"
+      defaultValue={defaultValue}
+      aria-label="Gênero"
+      className="h-10 w-full rounded-lg border border-line bg-field px-3 text-sm outline-none focus:border-ink"
+    >
+      <option value="homem">Homem</option>
+      <option value="mulher">Mulher</option>
+    </select>
+  );
+}
+
 function CampoEquipe({ defaultValue = "1" }: { defaultValue?: string }) {
   return (
     <select
@@ -86,9 +104,10 @@ function FormularioNovo() {
       className="rounded-2xl border border-line bg-panel p-4"
     >
       <h2 className="text-sm font-semibold">Novo colaborador</h2>
-      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_160px_auto] sm:items-center">
+      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_140px_140px_auto] sm:items-center">
         <CampoNome />
         <CampoEquipe />
+        <CampoGenero />
         <BotaoSalvar>Adicionar</BotaoSalvar>
       </div>
       {state?.error ? (
@@ -115,9 +134,10 @@ function FormularioEdicao({
   }, [state, onCancelar]);
 
   return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-[1fr_160px_auto_auto] sm:items-center">
+    <form action={formAction} className="grid gap-3 sm:grid-cols-[1fr_140px_140px_auto_auto] sm:items-center">
       <CampoNome defaultValue={colaborador.nome} />
       <CampoEquipe defaultValue={colaborador.equipe} />
+      <CampoGenero defaultValue={colaborador.genero} />
       <BotaoSalvar>Salvar</BotaoSalvar>
       <button
         type="button"
@@ -127,7 +147,7 @@ function FormularioEdicao({
         Cancelar
       </button>
       {state?.error ? (
-        <p className="text-sm font-medium text-foreground sm:col-span-4">{state.error}</p>
+        <p className="text-sm font-medium text-foreground sm:col-span-5">{state.error}</p>
       ) : null}
     </form>
   );
@@ -162,7 +182,7 @@ export function ColaboradoresPainel({
                     <div>
                       <p className="font-medium">{colaborador.nome}</p>
                       <p className="text-sm text-muted">
-                        Equipe {colaborador.equipe}
+                        Equipe {colaborador.equipe} · {textoGenero(colaborador.genero)}
                       </p>
                     </div>
                     <div className="flex gap-2">

@@ -22,7 +22,10 @@ export function Sidebar() {
       </div>
       <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:px-3 md:pb-6">
         {ITENS.map((item) => {
-          const ativo = pathname === item.href;
+          const ativo =
+            item.href === "/escala"
+              ? pathname === "/escala" || pathname === "/gerar-escala"
+              : pathname === item.href;
 
           return (
             <Link
