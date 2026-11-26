@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   buscarProximasFolgas,
   confirmarTrocaFolgaMensal,
+  desfazerTrocaFolgaMensal,
 } from "@/app/actions/troca-mensal";
 import type { Equipe } from "@/lib/colaboradores";
 import type { PlanoMensal } from "@/lib/plano-mensal";
@@ -66,6 +67,7 @@ type FolgaClicada = {
 type DetalheTroca = {
   top: number;
   left: number;
+  acima: boolean;
   trocas: TrocaVisivel[];
 };
 
@@ -133,6 +135,7 @@ export function GradeMensal({
   const [datas, setDatas] = useState<DataFolga[] | null>(null);
   const [dataEscolhida, setDataEscolhida] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [erroDetalhe, setErroDetalhe] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
 
   useEffect(() => {
@@ -189,10 +192,14 @@ export function GradeMensal({
     evento.stopPropagation();
     const retangulo = evento.currentTarget.getBoundingClientRect();
     const largura = 288;
+    const espacoAbaixo = window.innerHeight - retangulo.bottom;
+    const acima = espacoAbaixo < 200 && retangulo.top > espacoAbaixo;
     setPopup(null);
+    setErroDetalhe(null);
     setDetalhe({
-      top: retangulo.bottom + 6,
+      top: acima ? retangulo.top : retangulo.bottom + 6,
       left: Math.min(Math.max(16, retangulo.left), window.innerWidth - largura - 16),
+      acima,
       trocas: lista,
     });
   }
@@ -253,6 +260,19 @@ export function GradeMensal({
       }
 
       setOrigem(null);
+    });
+  }
+
+  function desfazer(id: string) {
+    setErroDetalhe(null);
+    iniciar(async () => {
+      const resultado = await desfazerTrocaFolgaMensal(id);
+      if ("error" in resultado) {
+        setErroDetalhe(resultado.error);
+        return;
+      }
+
+      setDetalhe(null);
     });
   }
 
@@ -456,7 +476,11 @@ export function GradeMensal({
         <div
           data-popup-troca=""
           className="fixed z-50 w-72 rounded-xl border border-line bg-panel p-3 text-sm shadow-lg"
-          style={{ top: detalhe.top, left: detalhe.left }}
+          style={{
+            top: detalhe.top,
+            left: detalhe.left,
+            transform: detalhe.acima ? "translateY(calc(-100% - 8px))" : undefined,
+          }}
         >
           <p className="text-xs font-medium text-muted">Troca ocasional</p>
           <div className="mt-2 space-y-3">
@@ -474,9 +498,18 @@ export function GradeMensal({
                   Essas duas datas foram invertidas.
                   {troca.registradaEm ? ` Registrada em ${troca.registradaEm}.` : ""}
                 </p>
+                <button
+                  type="button"
+                  disabled={pendente}
+                  onClick={() => desfazer(troca.id)}
+                  className="mt-2 rounded-lg border border-line bg-panel px-3 py-1.5 text-sm font-medium hover:bg-field disabled:opacity-60"
+                >
+                  {pendente ? "Desfazendo..." : "Desfazer"}
+                </button>
               </div>
             ))}
           </div>
+          {erroDetalhe ? <p className="mt-2 text-sm font-medium">{erroDetalhe}</p> : null}
         </div>
       ) : null}
 

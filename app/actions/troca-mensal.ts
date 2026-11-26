@@ -1,7 +1,12 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { proximasFolgas, registrarTrocaFolga, type DataFolga } from "@/lib/trocas-mensais";
+import {
+  desfazerTrocaFolga,
+  proximasFolgas,
+  registrarTrocaFolga,
+  type DataFolga,
+} from "@/lib/trocas-mensais";
 
 export async function buscarProximasFolgas(entrada: {
   colaboradorId: string;
@@ -35,5 +40,21 @@ export async function confirmarTrocaFolgaMensal(entrada: {
     return { ok: true };
   } catch {
     return { error: "Não foi possível trocar as folgas." };
+  }
+}
+
+export async function desfazerTrocaFolgaMensal(
+  id: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const resultado = await desfazerTrocaFolga(id);
+    if ("error" in resultado) {
+      return resultado;
+    }
+
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível desfazer a troca." };
   }
 }

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { connection } from "next/server";
 import { listarColaboradores } from "@/lib/colaboradores";
 import { obterConfiguracao } from "@/lib/configuracao";
@@ -267,5 +268,19 @@ export async function registrarTrocaFolga(troca: TrocaFolgaMensal) {
   }
 
   await TrocaFolgaMensalModel.create(troca);
+  return { ok: true as const };
+}
+
+export async function desfazerTrocaFolga(id: string) {
+  if (!mongoose.isValidObjectId(id)) {
+    return { error: "Não foi possível desfazer essa troca." };
+  }
+
+  await connectDB();
+  const removida = await TrocaFolgaMensalModel.findByIdAndDelete(id);
+  if (!removida) {
+    return { error: "Essa troca já foi desfeita." };
+  }
+
   return { ok: true as const };
 }
