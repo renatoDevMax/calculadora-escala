@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import type { Equipe } from "@/lib/colaboradores";
 import type { PlanoMensal } from "@/lib/plano-mensal";
+import type { TrocaVisivel } from "@/lib/trocas-mensais";
 
 const FIXA = "FFE7EBF0";
 const ALTERNADA = "FFEFE4C4";
@@ -93,7 +94,106 @@ function escreverTabela(
   planilha.views = [{ state: "frozen", ySplit: 3, xSplit: 2 }];
 }
 
-export async function gerarPlanilhaDoPlano(semana: PlanilhaSemana, plano: PlanoMensal) {
+export type LinhaTrocaPlanilha = {
+  colaborador: string;
+  equipe: string;
+  cedeu: string;
+  recebeu: string;
+  colega: string;
+  equipeColega: string;
+  registradaEm: string;
+};
+
+export function linhasDeTrocas(trocas: TrocaVisivel[]): LinhaTrocaPlanilha[] {
+  return trocas.flatMap((troca) => [
+    {
+      colaborador: troca.origemNome,
+      equipe: troca.origemEquipe,
+      cedeu: troca.origemRotulo,
+      recebeu: troca.destinoRotulo,
+      colega: troca.destinoNome,
+      equipeColega: troca.destinoEquipe,
+      registradaEm: troca.registradaEm,
+    },
+    {
+      colaborador: troca.destinoNome,
+      equipe: troca.destinoEquipe,
+      cedeu: troca.destinoRotulo,
+      recebeu: troca.origemRotulo,
+      colega: troca.origemNome,
+      equipeColega: troca.origemEquipe,
+      registradaEm: troca.registradaEm,
+    },
+  ]);
+}
+
+function escreverTrocas(planilha: ExcelJS.Worksheet, titulo: string, linhas: LinhaTrocaPlanilha[]) {
+  const cabecalhos = [
+    "Colaborador",
+    "Equipe",
+    "Cedeu a folga",
+    "Passou a folgar",
+    "Trocou com",
+    "Equipe do colega",
+    "Registrada em",
+  ];
+
+  planilha.mergeCells(1, 1, 1, cabecalhos.length);
+  const tituloCelula = planilha.getCell(1, 1);
+  tituloCelula.value = titulo;
+  tituloCelula.font = { bold: true, size: 16, color: { argb: "FF1C2128" } };
+
+  planilha.mergeCells(2, 1, 2, cabecalhos.length);
+  const nota = planilha.getCell(2, 1);
+  nota.value = "Vale só para as datas desta troca. A folga fixa e a alternada continuam nos outros dias.";
+  nota.font = { italic: true, color: { argb: "FF5C6570" } };
+
+  const cabecalho = planilha.getRow(4);
+  cabecalho.height = 24;
+  cabecalhos.forEach((texto, indice) => {
+    const celula = cabecalho.getCell(indice + 1);
+    celula.value = texto;
+    celula.font = { bold: true };
+    pintar(celula, CABECALHO);
+  });
+
+  if (linhas.length === 0) {
+    planilha.mergeCells(5, 1, 5, cabecalhos.length);
+    planilha.getCell(5, 1).value = "Nenhuma troca neste mês.";
+  } else {
+    linhas.forEach((linha, indice) => {
+      const linhaPlanilha = planilha.getRow(5 + indice);
+      const valores = [
+        linha.colaborador,
+        linha.equipe,
+        linha.cedeu,
+        linha.recebeu,
+        linha.colega,
+        linha.equipeColega,
+        linha.registradaEm,
+      ];
+      valores.forEach((valor, coluna) => {
+        const celula = linhaPlanilha.getCell(coluna + 1);
+        celula.value = valor;
+        if (coluna === 1 || coluna === 5) {
+          celula.alignment = { horizontal: "center" };
+        }
+      });
+    });
+  }
+
+  const larguras = [28, 12, 28, 28, 28, 18, 16];
+  larguras.forEach((largura, indice) => {
+    planilha.getColumn(indice + 1).width = largura;
+  });
+  planilha.views = [{ state: "frozen", ySplit: 4 }];
+}
+
+export async function gerarPlanilhaDoPlano(
+  semana: PlanilhaSemana,
+  plano: PlanoMensal,
+  trocas?: LinhaTrocaPlanilha[],
+) {
   const pasta = new ExcelJS.Workbook();
   pasta.creator = "Sistema de Escala";
   const folhaSemana = pasta.addWorksheet("Semana");
@@ -123,6 +223,11 @@ export async function gerarPlanilhaDoPlano(semana: PlanilhaSemana, plano: PlanoM
       celulas: linha.folgas.map((folga) => (folga ? "Folga" : "Trabalho")),
     })),
   );
+
+  if (trocas) {
+    const folhaTrocas = pasta.addWorksheet("Trocas");
+    escreverTrocas(folhaTrocas, `Trocas · ${plano.titulo}`, trocas);
+  }
 
   const conteudo = await pasta.xlsx.writeBuffer();
   return conteudo instanceof Uint8Array ? conteudo : new Uint8Array(conteudo);

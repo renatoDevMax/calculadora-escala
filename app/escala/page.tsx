@@ -15,7 +15,7 @@ async function Calendario({
   const semana = Array.isArray(parametros.semana)
     ? parametros.semana[0]
     : parametros.semana;
-  const vista = await obterVistaEscala(semana);
+  const vista = await obterVistaEscala(semana, { comTrocas: true });
 
   return <EscalaMes key={vista.grade.inicio} vista={vista} />;
 }

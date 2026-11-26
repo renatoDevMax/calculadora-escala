@@ -30,6 +30,8 @@ export function EscalaMes({ vista }: { vista: Vista }) {
           anterior={meses.anterior}
           proximo={meses.proximo}
           rota="/escala"
+          permitirTroca
+          trocas={vista.trocas}
         />
       ) : (
         <div className="space-y-4">

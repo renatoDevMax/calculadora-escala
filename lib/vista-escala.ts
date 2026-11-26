@@ -4,6 +4,12 @@ import { montarGradeTrabalho, semanasDosMesesVizinhos, type GradeTrabalho } from
 import { gerarPlanoMensal, marcacoesDeDiasFolga, type MarcacoesPlano, type PlanoMensal } from "@/lib/plano-mensal";
 import { obterPlanoMensal } from "@/lib/plano-mensal-salvo";
 import type { PlanilhaSemana } from "@/lib/planilha-plano";
+import {
+  aplicarTrocas,
+  listarTrocasFolga,
+  montarTrocasVisiveis,
+  type TrocaVisivel,
+} from "@/lib/trocas-mensais";
 
 export function tituloDoMes(iso: string) {
   const [ano, mes] = iso.split("-").map(Number);
@@ -48,13 +54,17 @@ export function semanaDaGrade(grade: GradeTrabalho, marcacoes: MarcacoesPlano): 
   };
 }
 
-export async function obterVistaEscala(semana?: string): Promise<{
+export async function obterVistaEscala(
+  semana?: string,
+  opcoes?: { comTrocas?: boolean },
+): Promise<{
   grade: GradeTrabalho;
   meses: { anterior: string; proximo: string };
   marcacoes: MarcacoesPlano;
   plano: PlanoMensal | null;
   aviso: string | null;
   limitePrioridade: number;
+  trocas: TrocaVisivel[];
 }> {
   const [colaboradores, config] = await Promise.all([
     listarColaboradores(),
@@ -82,6 +92,21 @@ export async function obterVistaEscala(semana?: string): Promise<{
     aviso = plano ? "Esta é a escala salva." : null;
   }
 
+  let trocas: TrocaVisivel[] = [];
+  if (plano && opcoes?.comTrocas) {
+    const registradas = await listarTrocasFolga();
+    plano = aplicarTrocas(plano, registradas);
+    trocas = montarTrocasVisiveis(
+      registradas,
+      colaboradores.map((pessoa) => ({
+        id: pessoa.id,
+        nome: pessoa.nome,
+        equipe: pessoa.equipe,
+      })),
+      plano.dias.map((dia) => dia.iso),
+    );
+  }
+
   return {
     grade,
     meses,
@@ -89,5 +114,6 @@ export async function obterVistaEscala(semana?: string): Promise<{
     plano,
     aviso,
     limitePrioridade: config.numFolgasPrioridade,
+    trocas,
   };
 }
